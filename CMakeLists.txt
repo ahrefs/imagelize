@@ -22,7 +22,17 @@ FetchContent_MakeAvailable(Catch2)
 #########
 # TESTS #
 #########
-add_executable(imagelize test/test.cpp)
+add_executable(imagelize
+        test/8bit.cpp
+        test/32bit.cpp
+        test/64bit.cpp
+        )
 
 target_link_libraries(imagelize PRIVATE Catch2::Catch2WithMain)
 target_include_directories(imagelize PRIVATE ./)
+
+##########
+# SAMPLE #
+##########
+add_executable(imagelize-sample sample/main.cpp)
+target_include_directories(imagelize-sample PRIVATE ./ ext)
