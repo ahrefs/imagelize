@@ -65,10 +65,19 @@ int main()
   const auto images = load_test_images("./test/data/");
 
   auto results = std::vector<imagelize::result>(images.size());
-  std::transform(
-    images.begin(),
-    images.end(),
-    results.begin(),
-    [](const image &img)
-    { return imagelize::analyze(img.image_data, img.format, img.width, img.height); });
+  std::transform(images.begin(), images.end(), results.begin(), [](const image &img){
+    return imagelize::analyze(img.image_data, img.format, img.width, img.height);
+  });
+
+  std::for_each(results.begin(), results.end(), [](imagelize::result result){
+                  std::cout << "Image: " <<
+                    result.contrast.rms << '\n' <<
+                    result.contrast.michelson << '\n' <<
+                    result.brightness << '\n' <<
+                    result.noise << '\n' <<
+                    result.blur << '\n' <<
+                    result.sharpness << '\n' <<
+                    std::endl;
+
+                  });
 }

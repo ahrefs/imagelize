@@ -134,7 +134,36 @@ namespace imagelize
       auto [min_it, max_it] = std::minmax(brightness.begin(), brightness.end());
       const auto min = *min_it;
       const auto max = *max_it;
-      return (max - min) / (min + max);
+      const auto contrast = (max - min) / (min + max);
+      return std::isnan(contrast) ? 0.0f : contrast;
+    }
+
+    [[nodiscard]] inline float average_brightness(const std::vector<float> &brightness)
+    {
+      return std::accumulate(brightness.begin(), brightness.end(), 0.0f) / static_cast<float>(brightness.size());
+    }
+
+    [[nodiscard]] inline float sharpness(const std::vector<float> &brightness, size_t width, size_t height)
+    {
+      const auto vertical_kernel = std::array<float, 9>({
+        1.0f, 2.0f, 1.0f,
+        0.0f, 0.0f, 0.0f,
+        -1.0f, -2.0f, -1.0f});
+
+      const auto horizontal_kernel = std::array<float, 9>({
+        -1.0f, 0.0f, 1.0f,
+        -2.0f, 0.0f, 2.0f,
+        -1.0f, 0.0f, 1.0f
+      });
+
+      auto access_pixel = [&brightness, width, height](size_t x, size_t y) -> float {
+        const auto idx = width * y + x;
+        return brightness[idx];
+      };
+
+      // Todo: Finish implementing sobel
+
+      return 0.0f;
     }
 
     [[nodiscard]] inline result analyze(const std::vector<float> &data, size_t width, size_t height)
@@ -149,7 +178,9 @@ namespace imagelize
       contrast.michelson = michelson_contrast(brightness);
 
       return {
-        .contrast = contrast
+        .contrast = contrast,
+        .brightness = average_brightness(brightness),
+
       };
     }
   }
