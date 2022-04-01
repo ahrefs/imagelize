@@ -2,6 +2,9 @@
 #define IMAGELIZE_IMAGELIZE_HPP
 
 #include <cstdint>
+#include <array>
+#include <vector>
+#include <numeric>
 
 namespace imagelize
 {
@@ -36,6 +39,24 @@ namespace imagelize
     template <>
     [[nodiscard]] constexpr inline float div_size<uint8_t>() noexcept { return 255.0f; }
 
+    [[nodiscard]] float rgb_to_mono(const float *rgb)
+    {
+      const auto weights = std::array<float, 3>({0.2125f, 0.7154f, 0.0721f});
+      auto res = 0.0f;
+      for (size_t i = 0; i < 3; i++) // 3 = rgb
+        res += rgb[i] * weights[i];
+      return res;
+    }
+
+    [[nodiscard]] std::array<float, 3> mono_to_rgb(float mono)
+    {
+      const auto weights = std::array<float, 3>({0.2125f, 0.7154f, 0.0721f});
+      auto res = std::array<float, 3>();
+      for (size_t i = 0; i < 3; i++)
+        res[i] = mono * weights[i];
+      return res;
+    }
+
     template <typename T>
     [[nodiscard]] inline std::vector<float> to_internal_format(const std::vector<T> &source, format image_format, size_t width, size_t height)
     {
@@ -61,9 +82,9 @@ namespace imagelize
           break;
         case format::MONO:
         {
-          const auto mono_to_rgb = std::array<float, 3>({0.2125f, 0.7154f, 0.0721f});
+          const auto rgb = mono_to_rgb(static_cast<float>(in[0]) * div_factor);
           for (size_t i = 0; i < 3; i++)
-            out[i] = static_cast<float>(in[0]) * mono_to_rgb[i] * div_factor;
+            out[i] = rgb[i];
         }
         }
       };
@@ -78,9 +99,15 @@ namespace imagelize
     }
   }
 
+  struct contrast_result
+  {
+    float rms;
+    float michelson;
+  };
+
   struct result
   {
-    float contrast;
+    contrast_result contrast;
     float brightness;
     float noise;
     float sharpness;
@@ -89,9 +116,41 @@ namespace imagelize
 
   namespace detail
   {
+    [[nodiscard]] inline float rms_contrast(const std::vector<float> &brightness)
+    {
+      const auto summed = std::accumulate(brightness.begin(), brightness.end(), 0.0f);
+      const auto average_brightness = summed / static_cast<float>(brightness.size());
+
+      auto sum_part = 0.0f;
+      for (const auto pixel : brightness)
+        sum_part += std::pow(pixel - average_brightness, 2.0f);
+
+      const auto inv_count = 1.0f / static_cast<float>(brightness.size());
+      return std::sqrt(inv_count * sum_part);
+    }
+
+    [[nodiscard]] inline float michelson_contrast(const std::vector<float> &brightness)
+    {
+      auto [min_it, max_it] = std::minmax(brightness.begin(), brightness.end());
+      const auto min = *min_it;
+      const auto max = *max_it;
+      return (max - min) / (min + max);
+    }
+
     [[nodiscard]] inline result analyze(const std::vector<float> &data, size_t width, size_t height)
     {
-      return {};
+      constexpr auto channel_count = channel_count_of_format(format::RGB);
+      auto brightness = std::vector<float>(data.size() / channel_count);
+      for (size_t i = 0; i < data.size(); i += channel_count)
+        brightness[i / channel_count] = rgb_to_mono(data.data() + i);
+
+      auto contrast = contrast_result();
+      contrast.rms = rms_contrast(brightness);
+      contrast.michelson = michelson_contrast(brightness);
+
+      return {
+        .contrast = contrast
+      };
     }
   }
 
